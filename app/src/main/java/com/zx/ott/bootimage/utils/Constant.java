@@ -16,7 +16,7 @@ public class Constant {
 
     public static final String BOOTANIMATION_ZIP = "bootanimation.zip";
     public static final String BOOTANIMATION_MP4 = "vendor_video.mpeg";
-    public static final String BOOTANIMATION_JPG = "logo.jpg";
+    public static final String BOOTANIMATION_JPG = "splash.dat"; //"logo.jpg";
 
     public static final String UPDATE_XML = "update.xml";
 
@@ -36,5 +36,7 @@ public class Constant {
     public static final String REMOUNT_SYSTEM_PATTION = "mount -o remount,rw /system";
 
     public static final String DOWNLOAD_TEMP_DIR_PATH = "/mnt/sdcard/Android/data/com.zx.ott.bootimage/files/Download";
+    public static final String COPY_TEMP_DIR_PATH = "/mnt/sdcard/Download/";
 
+    public static final String BURN_BOOTLOGO_EXE = "image_updater";
 }

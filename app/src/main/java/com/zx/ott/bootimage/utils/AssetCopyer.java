@@ -63,9 +63,17 @@ public class AssetCopyer {
     public static boolean copy( AssetManager assetManager, String assetName, String dest) throws IOException {
         Logger.getLogger().i("***************assets copy: dest = " + dest);
         InputStream source = assetManager.open(assetName);
+        File destination = new File(dest);
+        if(!destination.exists()) {
+            destination.mkdir();
+        }
+
         File destinationFile = new File(dest, assetName);
-        destinationFile.getParentFile().mkdirs();
-        OutputStream destination = new FileOutputStream(destinationFile);
+        destinationFile.createNewFile();
+        if(destinationFile.exists()) {
+            Logger.getLogger().d(" path " + destinationFile.getAbsolutePath() + "  exists");
+        }
+        OutputStream destOut = new FileOutputStream(destinationFile);
         byte[] buffer = new byte[1024];
         int nread;
 
@@ -74,13 +82,14 @@ public class AssetCopyer {
                 nread = source.read();
                 if (nread < 0)
                     break;
-                destination.write(nread);
+                destOut.write(nread);
                 continue;
             }
-            destination.write(buffer, 0, nread);
+            destOut.write(buffer, 0, nread);
         }
 
-        destination.close();
+        destOut.flush();
+        destOut.close();
         source.close();
 
         return true;

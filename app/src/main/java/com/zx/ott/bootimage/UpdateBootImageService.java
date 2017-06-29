@@ -2,13 +2,14 @@ package com.zx.ott.bootimage;
 
 import android.app.DownloadManager;
 import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
+import android.content.res.AssetManager;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.widget.Toast;
@@ -28,6 +29,7 @@ import com.zx.ott.bootimage.utils.Utils;
 import com.zx.ott.bootimage.utils.XmlUtils;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +49,7 @@ import java.util.Map;
 
 public class UpdateBootImageService extends Service {
 
+
     private static final int FISISH_DOWNLOAD_XML = 1;
     private static final int FISISH_DOWNLOAD_ZIP = 2;
     private static final int FISISH_DOWNLOAD_MP4 = 4;
@@ -59,6 +62,9 @@ public class UpdateBootImageService extends Service {
 
     private static final int START_DOWNLOAD = 10;
 
+    private static final int START_BURN_BOOTLOGO = 11;
+
+
     private static final String BOOTLOGO_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_JPG;
     private static final String BOOTANIMATION_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_ZIP;
     private static final String BOOTVIDEO_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_MP4;
@@ -68,9 +74,11 @@ public class UpdateBootImageService extends Service {
     private DownloadManager.Request mRequest;
 
 //    private NetWorkStatusReceiver mNetworkChangeReceiver;
-//    private NetWorkStatusReceiver mNetworkChangeReceiver1;
 
-    private MyHandler mMyHandler;
+    private ServiceWorkHandler mServiceWorkHandler;
+    private Looper mServiceLooper;
+
+    private MainHandler mMainHandler;
 
     private String mXmlFileUri = Constant.BASE_URL + Constant.UPDATE_XML;
     private String mXmlFileName = Constant.UPDATE_XML;
@@ -84,7 +92,7 @@ public class UpdateBootImageService extends Service {
     private boolean needUpdateBootVideo;
 
 
-    public static enum DownloadFileType {
+    public  enum DownloadFileType {
         JPG,
         MP4,
         ZIP,
@@ -97,10 +105,48 @@ public class UpdateBootImageService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        mDownloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-        mMyHandler = new MyHandler();
 
-        AssetCopyer.copyImageUpdate(getAssets(), "image_updater");    }
+        if(!NetWorkUtil.isNetWorkAvailable(this)) {
+            Logger.getLogger().i("netWork no available, stop self");
+            stopSelf();
+        }
+
+        mMainHandler = new MainHandler();
+
+        HandlerThread thread = new HandlerThread("UpdateBootImageService", android.os.Process.THREAD_PRIORITY_BACKGROUND);
+        thread.start();
+
+        mServiceLooper = thread.getLooper();
+        mServiceWorkHandler = new ServiceWorkHandler(mServiceLooper);
+
+        final AssetManager am = getAssets();
+        mServiceWorkHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    AssetCopyer.copy(am, Constant.BURN_BOOTLOGO_EXE, Constant.COPY_TEMP_DIR_PATH);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return;
+                }
+                if(new File(Constant.COPY_TEMP_DIR_PATH, Constant.BURN_BOOTLOGO_EXE).exists()) {
+                    Logger.getLogger().d("**************** shell copy");
+
+                    final List<String> cmds = new ArrayList<>();
+                    cmds.add("mv -f "
+                            + Constant.COPY_TEMP_DIR_PATH
+                            + Constant.BURN_BOOTLOGO_EXE
+                            + "  /data/oem");
+                    cmds.add("chmod 777 /data/oem/" + Constant.BURN_BOOTLOGO_EXE);
+
+                    ShellUtils.execCmd(cmds, false);
+
+                } else {
+                    Logger.getLogger().d("***************assets copy: file not exits!!");
+                }
+            }
+        });
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -115,6 +161,7 @@ public class UpdateBootImageService extends Service {
 
         checkUpdateInfo();
 
+        mServiceWorkHandler.sendEmptyMessage(16);
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -143,7 +190,7 @@ public class UpdateBootImageService extends Service {
 
     private void compareUpdateInfo() {
         if (mUpdateInfoMap.size() <= 0) {
-            mMyHandler.sendEmptyMessage(ERROR_DOWNLOAD_XML);
+            mMainHandler.sendEmptyMessage(ERROR_DOWNLOAD_XML);
             return;
         }
 
@@ -174,11 +221,12 @@ public class UpdateBootImageService extends Service {
         }
 
         if (needUpdateBootimage || needUpdateBootVideo || needUpdateAnimation) {
-            mMyHandler.sendEmptyMessage(START_DOWNLOAD);
+            mMainHandler.sendEmptyMessage(START_DOWNLOAD);
         }
     }
 
     private void showToast(String arg) {
+
         Toast.makeText(this, arg, Toast.LENGTH_SHORT).show();
     }
 
@@ -202,13 +250,13 @@ public class UpdateBootImageService extends Service {
                         @Override
                         public void onFinish(File file) {
                             Logger.getLogger().d("******startDownloadAnimation  onFinish file" + file.getAbsolutePath());
-                            mMyHandler.sendEmptyMessage(FISISH_DOWNLOAD_ZIP);
+                            mServiceWorkHandler.sendEmptyMessage(FISISH_DOWNLOAD_ZIP);
                         }
 
                         @Override
                         public void onError(int status, String error) {
                             Logger.getLogger().d("******startDownloadAnimation  error: " + error);
-                            mMyHandler.sendEmptyMessage(ERROR_DOWNLOAD_ZIP);
+                            mServiceWorkHandler.sendEmptyMessage(ERROR_DOWNLOAD_ZIP);
 
                         }
                     });
@@ -236,13 +284,13 @@ public class UpdateBootImageService extends Service {
                         @Override
                         public void onFinish(File file) {
                             Logger.getLogger().d("******startDownloadBootlogo  onFinish file" + file.getAbsolutePath());
-                            mMyHandler.sendEmptyMessage(FISISH_DOWNLOAD_JPG);
+                            mServiceWorkHandler.sendEmptyMessage(FISISH_DOWNLOAD_JPG);
                         }
 
                         @Override
                         public void onError(int status, String error) {
                             Logger.getLogger().d("******startDownloadBootlogo  error: " + error);
-                            mMyHandler.sendEmptyMessage(ERROR_DOWNLOAD_JPG);
+                            mServiceWorkHandler.sendEmptyMessage(ERROR_DOWNLOAD_JPG);
                         }
                     });
         }
@@ -269,13 +317,13 @@ public class UpdateBootImageService extends Service {
                         @Override
                         public void onFinish(File file) {
                             Logger.getLogger().d("******startDownloadBootVideo  onFinish file" + file.getAbsolutePath());
-                            mMyHandler.sendEmptyMessage(FISISH_DOWNLOAD_MP4);
+                            mServiceWorkHandler.sendEmptyMessage(FISISH_DOWNLOAD_MP4);
                         }
 
                         @Override
                         public void onError(int status, String error) {
                             Logger.getLogger().d("******startDownloadBootVideo  error: " + error);
-                            mMyHandler.sendEmptyMessage(ERROR_DOWNLOAD_MP4);
+                            mServiceWorkHandler.sendEmptyMessage(ERROR_DOWNLOAD_MP4);
                         }
                     });
         }
@@ -348,7 +396,7 @@ public class UpdateBootImageService extends Service {
         }).start();
     }
 
-    private class MyHandler extends Handler {
+    private final class MainHandler extends Handler {
 
         @Override
         public void handleMessage(Message msg) {
@@ -371,10 +419,28 @@ public class UpdateBootImageService extends Service {
                         startDownloadBootlogo();
                     }
                     break;
+            }
+
+            super.handleMessage(msg);
+
+        }
+    }
+
+    private final class ServiceWorkHandler extends Handler {
+
+        public ServiceWorkHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
                 case FISISH_DOWNLOAD_JPG:
                     copyFileToData(Constant.BOOTANIMATION_JPG);;
-                    SharePrefUtil.saveString(UpdateBootImageService.this, Constant.KEY_LAST_UPDATE_JPG_TIME, Utils.getNowTime());
+                    SharePrefUtil.saveString(UpdateBootImageService.this,
+                            Constant.KEY_LAST_UPDATE_JPG_TIME, Utils.getNowTime());
                     showToast("download bootlogo finished ");
+                    mServiceWorkHandler.sendEmptyMessageDelayed(START_BURN_BOOTLOGO, 500);
                     break;
                 case ERROR_DOWNLOAD_JPG:
                     showToast("download bootlogo faild");
@@ -383,7 +449,8 @@ public class UpdateBootImageService extends Service {
                 case FISISH_DOWNLOAD_ZIP:
                     copyFileToData(Constant.BOOTANIMATION_ZIP);
                     showToast("download veder_video finished");
-                    SharePrefUtil.saveString(UpdateBootImageService.this, Constant.KEY_LAST_UPDATE_ZIP_TIME, Utils.getNowTime());
+                    SharePrefUtil.saveString(UpdateBootImageService.this,
+                            Constant.KEY_LAST_UPDATE_ZIP_TIME, Utils.getNowTime());
                     break;
                 case ERROR_DOWNLOAD_ZIP:
                     showToast("download bootanimation faild");
@@ -391,31 +458,22 @@ public class UpdateBootImageService extends Service {
                     break;
                 case FISISH_DOWNLOAD_MP4:
                     copyBootVideo();
-                    SharePrefUtil.saveString(UpdateBootImageService.this, Constant.KEY_LAST_UPDATE_VIDEO_TIME, Utils.getNowTime());
+                    SharePrefUtil.saveString(UpdateBootImageService.this,
+                            Constant.KEY_LAST_UPDATE_VIDEO_TIME, Utils.getNowTime());
                     showToast("download veder_video finished");
                     break;
                 case ERROR_DOWNLOAD_MP4:
                     showToast("download veder_video faild");
                     FileUtils.deleteFile(BOOTVIDEO_DOWNLOAD_TMEP_PATH);
                     break;
-            }
-
-            super.handleMessage(msg);
-
-        }
-    }
-
-    private class DownLoadCompleteReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(DownloadManager.ACTION_DOWNLOAD_COMPLETE)) {
-
-            } else if (intent.getAction().equals(DownloadManager.ACTION_NOTIFICATION_CLICKED)) {
-                Toast.makeText(UpdateBootImageService.this, "Does not support yet", Toast.LENGTH_SHORT).show();
+                case START_BURN_BOOTLOGO:
+                    showToast("start burn bootlogo");
+                    String cmd = " ./data/oem/" + Constant.BURN_BOOTLOGO_EXE;
+                    ShellUtils.execCmd(cmd, false);
+                    break;
             }
         }
     }
-
 
     private class GetXmlTask extends AsyncTask<String, Void, HashMap<DownloadFileType, UpdateInfo>> {
 
@@ -459,9 +517,9 @@ public class UpdateBootImageService extends Service {
             Logger.getLogger().i("*****onPostExecute******* ");
             if (maps != null && maps.size() > 0) {
                 mUpdateInfoMap.putAll(maps);
-                mMyHandler.sendEmptyMessage(FISISH_DOWNLOAD_XML);
+                mMainHandler.sendEmptyMessage(FISISH_DOWNLOAD_XML);
             } else {
-                mMyHandler.sendEmptyMessage(ERROR_DOWNLOAD_XML);
+                mMainHandler.sendEmptyMessage(ERROR_DOWNLOAD_XML);
             }
         }
     }

@@ -7,7 +7,7 @@ public class Logger {
 	/**
 	 * log tag
 	 */
-	private String tag = "Logger";// application name
+	private String tag = "UpdateBootImageService";// application name
 
 	
 	/**
