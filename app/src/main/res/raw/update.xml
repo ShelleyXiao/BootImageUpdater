@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<firmwareupdate  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://adventure-works.com/schemas/firmware.xsd">
+    <bootlogo ver="2017-06-27">
+        <num>1</num>
+        <name>logo.jpg</name>
+        <desc_cn></desc_cn>
+        <desc_tw></desc_tw>
+        <desc_en>firmware release Description</desc_en>
+        <md5>81e853d5ce1f926decd6917b838caece</md5>
+        <size>210559450</size>
+        <level>3</level>
+        <needbackup>1</needbackup>
+        <downloadurl>http://203.110.167.99/download/shandong/lutong_test/logo.jpg</downloadurl>
+    </bootlogo>
+
+    <animation ver="2017-06-27">
+        <num>1</num>
+        <name>bootanimation.zip</name>
+        <desc_cn></desc_cn>
+        <desc_tw></desc_tw>
+        <desc_en>firmware release Description</desc_en>
+        <md5>81e853d5ce1f926decd6917b838caece</md5>
+        <size>210559450</size>
+        <level>3</level>
+        <needbackup>1</needbackup>
+        <downloadurl>http://203.110.167.99/download/shandong/lutong_test/bootanimation.zip</downloadurl>
+    </animation>
+
+    <video ver="2017-06-27">
+        <num>1</num>
+        <name>vendor_video.mp4</name>
+        <desc_cn></desc_cn>
+        <desc_tw></desc_tw>
+        <desc_en>firmware release Description</desc_en>
+        <md5>81e853d5ce1f926decd6917b838caece</md5>
+        <size>210559450</size>
+        <level>3</level>
+        <needbackup>1</needbackup>
+        <downloadurl>http://203.110.167.99/download/shandong/lutong_test/vendor_video.mp4</downloadurl>
+    </video>    
+
+</firmwareupdate>
