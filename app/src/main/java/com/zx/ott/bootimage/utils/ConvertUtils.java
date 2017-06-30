@@ -17,7 +17,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 
-import static android.icu.util.MeasureUnit.BYTE;
 
 /**
  * <pre>

@@ -16,7 +16,7 @@ public class Constant {
 
     public static final String BOOTANIMATION_ZIP = "bootanimation.zip";
     public static final String BOOTANIMATION_MP4 = "vendor_video.mpeg";
-    public static final String BOOTANIMATION_JPG = "splash.dat"; //"logo.jpg";
+    public static final String BOOTANIMATION_JPG = "splash.zip"; //"logo.jpg";
 
     public static final String UPDATE_XML = "update.xml";
 

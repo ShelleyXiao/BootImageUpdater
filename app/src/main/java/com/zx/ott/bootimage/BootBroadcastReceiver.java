@@ -28,6 +28,6 @@ public class BootBroadcastReceiver extends BroadcastReceiver {
 
     public static void wakeUpService(Context context) {
 
-        context.startService(new Intent(context, UpdateBootImageService.class));
+//        context.startService(new Intent(context, UpdateBootImageService.class));
     }
 }

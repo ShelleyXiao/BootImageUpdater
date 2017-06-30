@@ -4,7 +4,7 @@
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="system_update_check_button">Check Now</string>
-    <string name="device_status_activity_title">Status</string>
+    <string name="device_status_activity_title">Updater</string>
 
-    <string name="get_update_xml_failed">get update xml faild</string>
+    <string name="get_update_xml_failed">Get update info faild</string>
 </resources>

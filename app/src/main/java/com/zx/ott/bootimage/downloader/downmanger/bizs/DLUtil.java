@@ -68,7 +68,9 @@ final class DLUtil {
                     "application/x-shockwave-flash, application/xaml+xml," +
                     "application/vnd.ms-xpsdocument, application/x-ms-xbap," +
                     "application/x-ms-application, application/vnd.ms-excel," +
-                    "application/vnd.ms-powerpoint, application/msword, */*"));
+                    "application/vnd.ms-powerpoint, application/msword," +
+                    "video/mpeg4, */*"));
+
             headers.add(new DLHeader("Accept-Ranges", "bytes"));
             headers.add(new DLHeader("Charset", "UTF-8"));
             headers.add(new DLHeader("Connection", "Keep-Alive"));

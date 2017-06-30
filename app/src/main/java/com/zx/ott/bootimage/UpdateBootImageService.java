@@ -1,6 +1,5 @@
 package com.zx.ott.bootimage;
 
-import android.app.DownloadManager;
 import android.app.Service;
 import android.content.Intent;
 import android.content.res.AssetManager;
@@ -70,18 +69,12 @@ public class UpdateBootImageService extends Service {
     private static final String BOOTVIDEO_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_MP4;
 
 
-    private DownloadManager mDownloadManager;
-    private DownloadManager.Request mRequest;
-
-//    private NetWorkStatusReceiver mNetworkChangeReceiver;
-
     private ServiceWorkHandler mServiceWorkHandler;
     private Looper mServiceLooper;
 
     private MainHandler mMainHandler;
 
     private String mXmlFileUri = Constant.BASE_URL + Constant.UPDATE_XML;
-    private String mXmlFileName = Constant.UPDATE_XML;
 
     private boolean checkedAnimation;
     private boolean checkedBootlogo;
@@ -150,8 +143,6 @@ public class UpdateBootImageService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Logger.getLogger().i("onStartCommand******************");
-
         checkedAnimation = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_ZIP, false);
         checkBootVideo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_VIDEO, false);
         checkedBootlogo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_JPG, false);
@@ -159,9 +150,18 @@ public class UpdateBootImageService extends Service {
         Logger.getLogger().d("checkedAnimation =  " + checkedAnimation + " checkBootVideo = " + checkBootVideo
                 + " checkedBootlogo = " + checkedBootlogo);
 
+        if(checkedAnimation == false && checkedBootlogo == false && checkBootVideo == false) {
+            return super.onStartCommand(intent, flags, startId);
+        }
+
+        needUpdateAnimation = false;
+        needUpdateBootimage = false;
+        needUpdateAnimation = false;
+
         checkUpdateInfo();
 
-        mServiceWorkHandler.sendEmptyMessage(16);
+//        mServiceWorkHandler.sendEmptyMessageDelayed(START_BURN_BOOTLOGO, 500);
+//        mServiceWorkHandler.sendEmptyMessage(16 );
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -367,8 +367,8 @@ public class UpdateBootImageService extends Service {
         cmds.add("mv -f "
                 + AppCacheUtils.getExternalCacheDirectory(this, Environment.DIRECTORY_DOWNLOADS).getAbsolutePath()
                 + "/" + Constant.BOOTANIMATION_JPG
-                + "  /data/oem");
-        cmds.add("chmod 0644 /data/oem/" + Constant.BOOTANIMATION_JPG);
+                + "  /data/oem/splash.dat");
+        cmds.add("chmod 0644 /data/oem/splash.dat");
 
         new Thread(new Runnable() {
 
@@ -436,40 +436,56 @@ public class UpdateBootImageService extends Service {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case FISISH_DOWNLOAD_JPG:
-                    copyFileToData(Constant.BOOTANIMATION_JPG);;
+//                    copyFileToData(Constant.BOOTANIMATION_JPG);
+                    copyBootlogo();
                     SharePrefUtil.saveString(UpdateBootImageService.this,
                             Constant.KEY_LAST_UPDATE_JPG_TIME, Utils.getNowTime());
                     showToast("download bootlogo finished ");
-                    mServiceWorkHandler.sendEmptyMessageDelayed(START_BURN_BOOTLOGO, 500);
+                    mServiceWorkHandler.sendEmptyMessageDelayed(START_BURN_BOOTLOGO, 200);
                     break;
                 case ERROR_DOWNLOAD_JPG:
                     showToast("download bootlogo faild");
                     FileUtils.deleteFile(BOOTLOGO_DOWNLOAD_TMEP_PATH);
+                    UpdateInfo bootlogoInfo = mUpdateInfoMap.get(DownloadFileType.JPG);
+                    if(null != bootlogoInfo) {
+                        DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootlogoInfo.getDownloadUrl());
+                    }
+
                     break;
                 case FISISH_DOWNLOAD_ZIP:
                     copyFileToData(Constant.BOOTANIMATION_ZIP);
-                    showToast("download veder_video finished");
+                    showToast("download bootanimation finished");
                     SharePrefUtil.saveString(UpdateBootImageService.this,
                             Constant.KEY_LAST_UPDATE_ZIP_TIME, Utils.getNowTime());
                     break;
                 case ERROR_DOWNLOAD_ZIP:
                     showToast("download bootanimation faild");
                     FileUtils.deleteFile(BOOTANIMATION_DOWNLOAD_TMEP_PATH);
+                    UpdateInfo bootAnimationInfo = mUpdateInfoMap.get(DownloadFileType.ZIP);
+                    if(null != bootAnimationInfo) {
+                        DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootAnimationInfo.getDownloadUrl());
+                    }
                     break;
                 case FISISH_DOWNLOAD_MP4:
                     copyBootVideo();
                     SharePrefUtil.saveString(UpdateBootImageService.this,
                             Constant.KEY_LAST_UPDATE_VIDEO_TIME, Utils.getNowTime());
-                    showToast("download veder_video finished");
+                    showToast("download vender_video finished");
                     break;
                 case ERROR_DOWNLOAD_MP4:
                     showToast("download veder_video faild");
                     FileUtils.deleteFile(BOOTVIDEO_DOWNLOAD_TMEP_PATH);
+                    UpdateInfo bootVideoInfo = mUpdateInfoMap.get(DownloadFileType.MP4);
+                    if(null != bootVideoInfo) {
+                        DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootVideoInfo.getDownloadUrl());
+                    }
                     break;
                 case START_BURN_BOOTLOGO:
                     showToast("start burn bootlogo");
                     String cmd = " ./data/oem/" + Constant.BURN_BOOTLOGO_EXE;
                     ShellUtils.execCmd(cmd, false);
+
+//                    BurnBootlogoImageNative.wrtieRawImage("/data/oem/splash.dat");
                     break;
             }
         }
@@ -486,30 +502,9 @@ public class UpdateBootImageService extends Service {
             String urlPath = strings[0];
             HashMap<DownloadFileType, UpdateInfo> infos = null;
             Logger.getLogger().i("******doInBackground******* ");
-//            try {
-//                URL url = new URL(urlPath);
-//                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-//                conn.setConnectTimeout(5000);
-//                conn.setRequestMethod("GET");
-//                Log.i("CONN", conn.toString() + " code = " + conn.getResponseCode());
-//
-//                if (conn.getResponseCode() == 200) {
-//                    InputStream ins = conn.getInputStream();
-//                    return (HashMap) XmlUtils.loadOtaPackageInfo(ins);
-//                }
-//
-//                InputStream ins = conn.getInputStream();
-//                return (HashMap) XmlUtils.loadOtaPackageInfo(ins);
-//            } catch (Exception e) {
-////                e.printStackTrace();
-//                e.printStackTrace();
-//                return infos;
-//
-//            }
 
             InputStream ins = HttpUtils.getXML(urlPath);
             return (HashMap) XmlUtils.loadOtaPackageInfo(ins);
-
         }
 
         @Override
