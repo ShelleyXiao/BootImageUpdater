@@ -13,7 +13,7 @@ public class Logger {
 	/**
 	 * debug or not
 	 */
-	private static boolean debug = true;
+	private static boolean debug = Constant.DEBUG;
 
 	private static Logger instance = new Logger();
 

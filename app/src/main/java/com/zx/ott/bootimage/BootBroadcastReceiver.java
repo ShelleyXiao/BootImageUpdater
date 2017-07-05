@@ -18,9 +18,13 @@ import com.zx.ott.bootimage.utils.Logger;
 
 public class BootBroadcastReceiver extends BroadcastReceiver {
 
+    static final String BOOT_COMPLETED_ACTION_D = "com.zhaoxin.bootimage.debug";
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        if(Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+        Logger.getLogger().i(intent.getAction());
+        if(Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
+                || BOOT_COMPLETED_ACTION_D.equals(intent.getAction()) ) {
             Logger.getLogger().i("**************** BootBroadcastReceiver************* ");
             wakeUpService(context);
         }
@@ -28,6 +32,6 @@ public class BootBroadcastReceiver extends BroadcastReceiver {
 
     public static void wakeUpService(Context context) {
 
-//        context.startService(new Intent(context, UpdateBootImageService.class));
+        context.startService(new Intent(context, UpdateBootImageService.class));
     }
 }

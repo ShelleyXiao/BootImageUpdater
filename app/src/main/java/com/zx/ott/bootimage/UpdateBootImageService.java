@@ -48,7 +48,6 @@ import java.util.Map;
 
 public class UpdateBootImageService extends Service {
 
-
     private static final int FISISH_DOWNLOAD_XML = 1;
     private static final int FISISH_DOWNLOAD_ZIP = 2;
     private static final int FISISH_DOWNLOAD_MP4 = 4;
@@ -63,6 +62,10 @@ public class UpdateBootImageService extends Service {
 
     private static final int START_BURN_BOOTLOGO = 11;
 
+    private static final int STOP_SERVICE = 12;
+
+    private static final int REMOVE_VIDEO = 13;
+
 
     private static final String BOOTLOGO_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_JPG;
     private static final String BOOTANIMATION_DOWNLOAD_TMEP_PATH = Constant.DOWNLOAD_TEMP_DIR_PATH + "/" + Constant.BOOTANIMATION_ZIP;
@@ -76,9 +79,9 @@ public class UpdateBootImageService extends Service {
 
     private String mXmlFileUri = Constant.BASE_URL + Constant.UPDATE_XML;
 
-    private boolean checkedAnimation;
-    private boolean checkedBootlogo;
-    private boolean checkBootVideo;
+//    private boolean checkedAnimation;
+//    private boolean checkedBootlogo;
+//    private boolean checkBootVideo;
 
     private boolean needUpdateAnimation;
     private boolean needUpdateBootimage;
@@ -143,16 +146,16 @@ public class UpdateBootImageService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        checkedAnimation = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_ZIP, false);
-        checkBootVideo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_VIDEO, false);
-        checkedBootlogo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_JPG, false);
+//        checkedAnimation = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_ZIP, false);
+//        checkBootVideo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_VIDEO, false);
+//        checkedBootlogo = intent.getBooleanExtra(Constant.KEY_FIRST_UPDATE_JPG, false);
 
-        Logger.getLogger().d("checkedAnimation =  " + checkedAnimation + " checkBootVideo = " + checkBootVideo
-                + " checkedBootlogo = " + checkedBootlogo);
+//        Logger.getLogger().d("checkedAnimation =  " + checkedAnimation + " checkBootVideo = " + checkBootVideo
+//                + " checkedBootlogo = " + checkedBootlogo);
 
-        if(checkedAnimation == false && checkedBootlogo == false && checkBootVideo == false) {
-            return super.onStartCommand(intent, flags, startId);
-        }
+//        if(checkedAnimation == false && checkedBootlogo == false && checkBootVideo == false) {
+//            return super.onStartCommand(intent, flags, startId);
+//        }
 
         needUpdateAnimation = false;
         needUpdateBootimage = false;
@@ -163,7 +166,7 @@ public class UpdateBootImageService extends Service {
 //        mServiceWorkHandler.sendEmptyMessageDelayed(START_BURN_BOOTLOGO, 500);
 //        mServiceWorkHandler.sendEmptyMessage(16 );
 
-        return super.onStartCommand(intent, flags, startId);
+        return START_STICKY;
     }
 
     @Override
@@ -197,27 +200,34 @@ public class UpdateBootImageService extends Service {
         String lastUpdateJpg = SharePrefUtil.getString(this, Constant.KEY_LAST_UPDATE_JPG_TIME, Constant.DEFALUT_INIT_UPDATE_TIME);
         String lastUpdateZip = SharePrefUtil.getString(this, Constant.KEY_LAST_UPDATE_ZIP_TIME, Constant.DEFALUT_INIT_UPDATE_TIME);
         String lastUpdateVideo = SharePrefUtil.getString(this, Constant.KEY_LAST_UPDATE_VIDEO_TIME, Constant.DEFALUT_INIT_UPDATE_TIME);
+
+        Logger.getLogger().i("lastUpdateJpg = " + lastUpdateJpg + " lastUpdateZip = " + " lastUpdateVideo");
+
         for (Map.Entry<DownloadFileType, UpdateInfo> enty : mUpdateInfoMap.entrySet()) {
             UpdateInfo info = enty.getValue();
             if (info.getName().equals(Constant.BOOTANIMATION_JPG)) {
                 if (Utils.compareOtaVersion(lastUpdateJpg, info.getVersion())
-                        && checkedBootlogo) {
+                        ) {
                     needUpdateBootimage = true;
                     Logger.getLogger().i("************** needUpdateBootimage");
                 }
             } else if (info.getName().equals(Constant.BOOTANIMATION_ZIP)
-                    && checkedAnimation) {
+                    ) {
                 if (Utils.compareOtaVersion(lastUpdateZip, info.getVersion())) {
                     needUpdateAnimation = true;
                     Logger.getLogger().i("************** needUpdateAnimation");
                 }
             } else if (info.getName().equals(Constant.BOOTANIMATION_MP4)) {
                 if (Utils.compareOtaVersion(lastUpdateVideo, info.getVersion())
-                        && checkBootVideo) {
+                        ) {
                     needUpdateBootVideo = true;
                     Logger.getLogger().i("************** needUpdateBootVideo");
                 }
             }
+        }
+        // 只更新 animation 但video 在系统中优先级要高，故删除掉video 保留新 animation
+        if(needUpdateAnimation && needUpdateBootVideo == false) {
+            mServiceWorkHandler.sendEmptyMessage(REMOVE_VIDEO);
         }
 
         if (needUpdateBootimage || needUpdateBootVideo || needUpdateAnimation) {
@@ -226,8 +236,9 @@ public class UpdateBootImageService extends Service {
     }
 
     private void showToast(String arg) {
-
-        Toast.makeText(this, arg, Toast.LENGTH_SHORT).show();
+        if(Constant.DEBUG) {
+            Toast.makeText(this, arg, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void startDownloadAnimation() {
@@ -396,6 +407,25 @@ public class UpdateBootImageService extends Service {
         }).start();
     }
 
+    private void removeBootVideo() {
+        final String cmd = "rm -f /data/oem/vendor_video.mp4";
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                ShellUtils.execCmd(cmd, false);
+            }
+        }).start();
+    }
+
+    private void stopServiceSelf() {
+        if(needUpdateAnimation == false
+                && needUpdateBootimage == false
+                && needUpdateBootVideo == false) {
+            stopSelf();
+        }
+    }
+
     private final class MainHandler extends Handler {
 
         @Override
@@ -418,6 +448,9 @@ public class UpdateBootImageService extends Service {
                     if (needUpdateBootimage) {
                         startDownloadBootlogo();
                     }
+                    break;
+                case STOP_SERVICE:
+                    stopServiceSelf();
                     break;
             }
 
@@ -450,13 +483,14 @@ public class UpdateBootImageService extends Service {
                     if(null != bootlogoInfo) {
                         DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootlogoInfo.getDownloadUrl());
                     }
-
+                    needUpdateBootimage = false;
                     break;
                 case FISISH_DOWNLOAD_ZIP:
                     copyFileToData(Constant.BOOTANIMATION_ZIP);
                     showToast("download bootanimation finished");
                     SharePrefUtil.saveString(UpdateBootImageService.this,
                             Constant.KEY_LAST_UPDATE_ZIP_TIME, Utils.getNowTime());
+                    needUpdateAnimation = false;
                     break;
                 case ERROR_DOWNLOAD_ZIP:
                     showToast("download bootanimation faild");
@@ -465,12 +499,14 @@ public class UpdateBootImageService extends Service {
                     if(null != bootAnimationInfo) {
                         DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootAnimationInfo.getDownloadUrl());
                     }
+                    needUpdateAnimation = false;
                     break;
                 case FISISH_DOWNLOAD_MP4:
                     copyBootVideo();
                     SharePrefUtil.saveString(UpdateBootImageService.this,
                             Constant.KEY_LAST_UPDATE_VIDEO_TIME, Utils.getNowTime());
                     showToast("download vender_video finished");
+                    needUpdateBootVideo = false;
                     break;
                 case ERROR_DOWNLOAD_MP4:
                     showToast("download veder_video faild");
@@ -479,15 +515,21 @@ public class UpdateBootImageService extends Service {
                     if(null != bootVideoInfo) {
                         DLManager.getInstance(UpdateBootImageService.this).dlCancel(bootVideoInfo.getDownloadUrl());
                     }
+                    needUpdateBootVideo = false;
                     break;
                 case START_BURN_BOOTLOGO:
                     showToast("start burn bootlogo");
                     String cmd = " ./data/oem/" + Constant.BURN_BOOTLOGO_EXE;
                     ShellUtils.execCmd(cmd, false);
+                    needUpdateBootimage = false;
+                    break;
 
-//                    BurnBootlogoImageNative.wrtieRawImage("/data/oem/splash.dat");
+                case REMOVE_VIDEO:
+                    removeBootVideo();
                     break;
             }
+
+            mMainHandler.sendEmptyMessageDelayed(STOP_SERVICE, 500);
         }
     }
 

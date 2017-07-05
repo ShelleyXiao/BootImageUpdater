@@ -40,6 +40,7 @@
             >
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED"></action>
+                <action android:name="com.zhaoxin.bootimage.debug"></action>
             </intent-filter>
         </receiver>
     </application>

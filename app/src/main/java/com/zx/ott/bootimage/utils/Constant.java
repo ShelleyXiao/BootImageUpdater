@@ -12,7 +12,9 @@ package com.zx.ott.bootimage.utils;
 
 public class Constant {
 
-    public static final String BASE_URL = "http://203.110.167.99/download/shandong/lutong_test/";
+    public static final boolean DEBUG = true;
+//    public static final String BASE_URL = "http://203.110.167.99/download/shandong/lutong_test/";
+    public static final String BASE_URL = "http://172.16.0.88:8082/";
 
     public static final String BOOTANIMATION_ZIP = "bootanimation.zip";
     public static final String BOOTANIMATION_MP4 = "vendor_video.mpeg";
